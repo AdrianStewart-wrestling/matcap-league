@@ -61,15 +61,15 @@ export function checkConferenceRule(pickedWrestlers) {
   };
 }
 
-// Exactly one of the 10 picks must be a 2026 weight-class champion
-// (not zero, not two or more).
+// At most one of the 10 picks may be a 2026 weight-class champion.
+// Zero is fine; a champion pick is optional, not required.
 export function checkChampionRule(pickedWrestlers) {
   const champions = pickedWrestlers.filter((p) => p.wrestler.champion);
   const count = champions.length;
   return {
     count,
-    needed: 1,
-    satisfied: count === 1,
+    max: 1,
+    satisfied: count <= 1,
     champions,
   };
 }
