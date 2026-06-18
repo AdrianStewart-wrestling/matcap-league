@@ -2,7 +2,7 @@ import { useState } from "react";
 import { C, displayFont, bodyFont } from "../theme";
 import { TextInput, PrimaryButton } from "./Primitives";
 
-export function LoginScreen({ managers, onLogin }) {
+export function LoginScreen({ managers, leagueName, onLogin }) {
   const [name, setName] = useState("");
   return (
     <div
@@ -18,10 +18,10 @@ export function LoginScreen({ managers, onLogin }) {
       <div style={{ width: "100%", maxWidth: 380 }}>
         <div style={{ textAlign: "center", marginBottom: 28 }}>
           <div style={{ fontFamily: displayFont, fontSize: 32, fontWeight: 700, color: C.chalk, letterSpacing: 0.5, textTransform: "uppercase" }}>
-            MatCap League
+            {leagueName || "MatCap League"}
           </div>
           <div style={{ fontSize: 13.5, color: C.chalkDim, marginTop: 6 }}>
-            Salary-cap NCAA wrestling, one shared league.
+            NCAA wrestling fantasy league.
           </div>
         </div>
 

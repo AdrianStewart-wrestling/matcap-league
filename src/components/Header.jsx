@@ -1,6 +1,6 @@
 import { C, displayFont } from "../theme";
 
-export function Header({ manager, onSwitch }) {
+export function Header({ manager, leagueName, onSwitch }) {
   return (
     <div
       style={{
@@ -14,7 +14,7 @@ export function Header({ manager, onSwitch }) {
       }}
     >
       <div style={{ fontFamily: displayFont, fontSize: 19, fontWeight: 700, color: C.chalk, letterSpacing: 0.5, textTransform: "uppercase" }}>
-        MatCap League
+        {leagueName || "MatCap League"}
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <span style={{ fontSize: 13.5, color: C.chalkDim }}>{manager.name}</span>

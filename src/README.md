@@ -2,7 +2,31 @@
 
 An NCAA wrestling fantasy league for you and your friends. Real React
 app, shared live data via Supabase, deployable to GitHub Pages for
-free.
+free. One deployment can host multiple independent leagues — see
+"Running multiple leagues" below.
+
+## Running multiple leagues
+
+Each league lives at its own URL: `https://your-deployment/?league=xyz`.
+A link with no `?league=` param at all falls back to a league called
+`default`, so any link you'd already shared before this feature existed
+keeps working exactly as it did before.
+
+Right now, only you can create a new league (there's no in-app "create
+league" button). To start one:
+1. In the Supabase dashboard's SQL Editor, run:
+   `insert into leagues (id, name) values ('your-slug', 'Your League Name');`
+   `insert into league_state (league_id, current_week) values ('your-slug', 1);`
+   (the second line is optional — the app will create it automatically
+   on first load if you skip it, but it's harmless to include.)
+2. Share `https://your-deployment/?league=your-slug` with that league's
+   players.
+
+Each league has its own managers, rosters, matchups, results, and
+current week — nothing is shared between leagues except the wrestler
+pool and rules (everyone drafts from the same 759-wrestler pool and
+follows the same champion/conference rules, since those live in code,
+not the database).
 
 ## How the league works
 
@@ -67,6 +91,17 @@ If your project predates the commit-roster feature, also run
 in the same SQL editor — it adds the `committed` column to the
 `rosters` table that the commit flow relies on. New projects created
 after this feature shipped should fold this into `schema.sql` directly
+and can skip this step.
+
+### 2c. Run the multi-league migration
+
+If your project predates multi-league support, also run
+[`supabase/migration_multi_league.sql`](./supabase/migration_multi_league.sql)
+in the same SQL editor. It adds a `leagues` table and a `league_id`
+column to everything else, and assigns all your existing data to a
+league called `default` — so your existing join link keeps working
+exactly as before. New projects created after this feature shipped can
+just use the current `schema.sql`, which already includes all of this,
 and can skip this step.
 
 ### 3. Get your API keys
@@ -160,12 +195,13 @@ src/
     rosterRules.js       # the 10-weight + champion + exact-conference-distribution validator
   lib/
     supabaseClient.js    # Supabase connection
-    leagueData.js         # all reads/writes to the shared database
+    leagueData.js         # all reads/writes to the database, every function scoped by league_id
   components/            # UI pages and pieces
-  App.jsx                 # wires everything together
+  App.jsx                 # wires everything together, resolves ?league= from the URL
 supabase/
-  schema.sql               # run this once in your Supabase project
-supabase_migration_committed.sql  # run once if upgrading an existing project (see step 2b above)
+  schema.sql               # fresh-install schema, multi-league from the start
+  migration_multi_league.sql  # run once if upgrading an existing single-league project (see step 2c above)
+supabase_migration_committed.sql  # run once if upgrading a project from before commit-roster existed (see step 2b above)
 ```
 
 ## Notes

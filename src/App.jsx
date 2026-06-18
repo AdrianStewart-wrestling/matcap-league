@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { C, bodyFont, displayFont, SWAPS_PER_WEEK } from "./theme";
 import { buildFullWrestlerData } from "./data/wrestlers";
 import {
+  fetchLeague,
   fetchManagers,
   createManager,
   fetchAllRosters,
@@ -27,10 +28,23 @@ import { MatchupPage } from "./components/MatchupPage";
 import { ResultsPage } from "./components/ResultsPage";
 import { StandingsPage } from "./components/StandingsPage";
 
+// Reads the ?league=xyz URL param. Falls back to "default" when absent,
+// so any link shared before multi-league support existed (or anyone who
+// just navigates to the bare app URL) keeps landing in the original
+// league rather than hitting a dead end.
+function getLeagueIdFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("league") || "default";
+}
+
 export default function App() {
   const [booting, setBooting] = useState(true);
   const [loadError, setLoadError] = useState(null);
+  const [leagueNotFound, setLeagueNotFound] = useState(false);
+  const [currentLeague, setCurrentLeague] = useState(null);
   const [currentManager, setCurrentManager] = useState(null);
+
+  const leagueId = useMemo(() => getLeagueIdFromUrl(), []);
 
   const [managers, setManagers] = useState([]);
   const [rosters, setRosters] = useState({});
@@ -52,12 +66,12 @@ export default function App() {
 
   const loadAll = useCallback(async () => {
     const [mgrs, rostersResult, swaps, week, mtch, res] = await Promise.all([
-      fetchManagers(),
-      fetchAllRosters(),
-      fetchAllSwapLogs(),
-      fetchCurrentWeek(),
-      fetchAllMatchups(),
-      fetchAllResults(),
+      fetchManagers(leagueId),
+      fetchAllRosters(leagueId),
+      fetchAllSwapLogs(leagueId),
+      fetchCurrentWeek(leagueId),
+      fetchAllMatchups(leagueId),
+      fetchAllResults(leagueId),
     ]);
     setManagers(mgrs);
     setRosters(rostersResult.rosters);
@@ -67,13 +81,20 @@ export default function App() {
     setMatchups(mtch);
     setResults(res);
     return mgrs;
-  }, []);
+  }, [leagueId]);
 
   useEffect(() => {
     (async () => {
       try {
+        const league = await fetchLeague(leagueId);
+        if (!league) {
+          setLeagueNotFound(true);
+          setBooting(false);
+          return;
+        }
+        setCurrentLeague(league);
         const mgrs = await loadAll();
-        const savedMe = loadMyIdentity();
+        const savedMe = loadMyIdentity(leagueId);
         if (savedMe && mgrs.find((m) => m.id === savedMe.id)) {
           setCurrentManager(savedMe);
         }
@@ -84,14 +105,15 @@ export default function App() {
         setBooting(false);
       }
     })();
-  }, [loadAll]);
+  }, [loadAll, leagueId]);
 
   useEffect(() => {
-    const unsubscribe = subscribeToLeagueChanges(() => {
+    if (!currentLeague) return;
+    const unsubscribe = subscribeToLeagueChanges(leagueId, () => {
       loadAll().catch((e) => console.error("Realtime refresh failed:", e));
     });
     return unsubscribe;
-  }, [loadAll]);
+  }, [loadAll, leagueId, currentLeague]);
 
   function showToast(msg) {
     setToast(msg);
@@ -105,9 +127,9 @@ export default function App() {
     if (!mgr) {
       mgr = { id: "m" + Date.now() + Math.floor(Math.random() * 1000), name: trimmed };
       try {
-        await createManager(mgr);
+        await createManager(mgr, leagueId);
         setManagers((prev) => [...prev, mgr]);
-        await saveRoster(mgr.id, {});
+        await saveRoster(mgr.id, {}, leagueId);
         setRosters((prev) => ({ ...prev, [mgr.id]: {} }));
         setCommittedMap((prev) => ({ ...prev, [mgr.id]: false }));
       } catch (e) {
@@ -116,12 +138,12 @@ export default function App() {
       }
     }
     setCurrentManager(mgr);
-    saveMyIdentity(mgr);
+    saveMyIdentity(mgr, leagueId);
   }
 
   function handleSwitchManager() {
     setCurrentManager(null);
-    saveMyIdentity(null);
+    saveMyIdentity(null, leagueId);
   }
 
   const myRoster = useMemo(() => rosters[currentManager?.id] || {}, [rosters, currentManager]);
@@ -143,7 +165,7 @@ export default function App() {
     const newRosterForMe = { ...myRoster, [weight]: wrestlerId };
     setRosters((prev) => ({ ...prev, [currentManager.id]: newRosterForMe }));
     try {
-      await saveRoster(currentManager.id, newRosterForMe);
+      await saveRoster(currentManager.id, newRosterForMe, leagueId);
     } catch (e) {
       showToast("Couldn't save roster: " + (e.message || e));
       return;
@@ -153,7 +175,7 @@ export default function App() {
       const mySwaps = { ...(swapLog[currentManager.id] || {}) };
       mySwaps[weekKey] = (mySwaps[weekKey] || 0) + 1;
       setSwapLog((prev) => ({ ...prev, [currentManager.id]: mySwaps }));
-      await saveSwapLog(currentManager.id, mySwaps);
+      await saveSwapLog(currentManager.id, mySwaps, leagueId);
     }
     showToast(`${wrestlerById[wrestlerId].name} added at ${weight} lbs.`);
   }
@@ -168,20 +190,20 @@ export default function App() {
     const newRosterForMe = { ...myRoster };
     delete newRosterForMe[weight];
     setRosters((prev) => ({ ...prev, [currentManager.id]: newRosterForMe }));
-    await saveRoster(currentManager.id, newRosterForMe);
+    await saveRoster(currentManager.id, newRosterForMe, leagueId);
 
     if (isCommitted) {
       const mySwaps = { ...(swapLog[currentManager.id] || {}) };
       mySwaps[weekKey] = (mySwaps[weekKey] || 0) + 1;
       setSwapLog((prev) => ({ ...prev, [currentManager.id]: mySwaps }));
-      await saveSwapLog(currentManager.id, mySwaps);
+      await saveSwapLog(currentManager.id, mySwaps, leagueId);
     }
   }
 
   async function commitRoster() {
     if (!currentManager) return;
     try {
-      await setRosterCommitted(currentManager.id, true);
+      await setRosterCommitted(currentManager.id, true, leagueId);
       setCommittedMap((prev) => ({ ...prev, [currentManager.id]: true }));
       showToast("Roster committed! Swaps and removals now use your weekly limit.");
     } catch (e) {
@@ -193,13 +215,13 @@ export default function App() {
     const weekResults = { ...(results[weekKey] || {}) };
     weekResults[wrestlerId] = outcomeKey;
     setResults((prev) => ({ ...prev, [weekKey]: weekResults }));
-    await saveResults(weekKey, weekResults);
+    await saveResults(weekKey, weekResults, leagueId);
   }
 
   async function advanceWeek() {
     const next = currentWeek + 1;
     setCurrentWeek(next);
-    await saveCurrentWeek(next);
+    await saveCurrentWeek(next, leagueId);
     showToast(`Advanced to Week ${next}.`);
   }
 
@@ -217,7 +239,7 @@ export default function App() {
       pairs.push({ a: shuffled[shuffled.length - 1].id, b: null });
     }
     setMatchups((prev) => ({ ...prev, [weekKey]: pairs }));
-    await saveMatchups(weekKey, pairs);
+    await saveMatchups(weekKey, pairs, leagueId);
     showToast(`Matchups generated for Week ${currentWeek}.`);
   }
 
@@ -308,17 +330,34 @@ export default function App() {
     );
   }
 
+  if (leagueNotFound) {
+    return (
+      <div style={{ ...wrapperStyle, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+        <div style={{ textAlign: "center", maxWidth: 420 }}>
+          <div style={{ fontFamily: displayFont, fontSize: 20, color: C.maroon, marginBottom: 8 }}>
+            League not found
+          </div>
+          <div style={{ fontSize: 14, color: C.inkSoft }}>
+            The link you used (<code>?league={leagueId}</code>) doesn't match
+            any league. Double-check the link your commissioner shared with
+            you, or ask them to confirm the league still exists.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!currentManager) {
     return (
       <div style={wrapperStyle}>
-        <LoginScreen managers={managers} onLogin={handleLogin} />
+        <LoginScreen managers={managers} leagueName={currentLeague?.name} onLogin={handleLogin} />
       </div>
     );
   }
 
   return (
     <div style={wrapperStyle}>
-      <Header manager={currentManager} onSwitch={handleSwitchManager} />
+      <Header manager={currentManager} leagueName={currentLeague?.name} onSwitch={handleSwitchManager} />
       <Nav page={page} setPage={setPage} />
       <div style={{ maxWidth: 1000, margin: "0 auto", padding: "26px 18px 56px" }}>
         {toast && <Toast message={toast} />}
