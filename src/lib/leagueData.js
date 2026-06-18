@@ -18,18 +18,47 @@ export async function createManager(manager) {
   if (error) throw error;
 }
 
+// Returns { rosters: { [managerId]: roster }, committed: { [managerId]: boolean } }.
+// `committed` defaults to false for any manager row that predates this
+// column (handled by the `?? false` below), so existing in-progress
+// rosters from before this feature don't accidentally look locked.
 export async function fetchAllRosters() {
   const { data, error } = await supabase.from("rosters").select("*");
   if (error) throw error;
-  const out = {};
-  data.forEach((r) => { out[r.manager_id] = r.roster || {}; });
-  return out;
+  const rosters = {};
+  const committed = {};
+  data.forEach((r) => {
+    rosters[r.manager_id] = r.roster || {};
+    committed[r.manager_id] = r.committed ?? false;
+  });
+  return { rosters, committed };
 }
 
+// IMPORTANT: this never touches the `committed` column. Supabase/PostgREST
+// upsert() replaces the whole row with whatever columns you pass — it does
+// NOT merge column-by-column — so if this function ever included
+// `committed` here, every regular pre-commit edit or weekly swap would
+// silently overwrite it. Use setRosterCommitted (below) to change that
+// flag; it uses update() with an explicit column list instead, which only
+// touches the columns named.
 export async function saveRoster(managerId, roster) {
   const { error } = await supabase
     .from("rosters")
     .upsert({ manager_id: managerId, roster, updated_at: new Date().toISOString() });
+  if (error) throw error;
+}
+
+// Dedicated function for flipping the commit flag. Uses update(), not
+// upsert(), so it only ever touches the `committed` column on the row
+// that already exists — it can never wipe out `roster` or any other
+// column, and it can't accidentally create a row either (the roster row
+// must already exist, which it always does by the time someone is
+// finishing their initial build).
+export async function setRosterCommitted(managerId, committed) {
+  const { error } = await supabase
+    .from("rosters")
+    .update({ committed, updated_at: new Date().toISOString() })
+    .eq("manager_id", managerId);
   if (error) throw error;
 }
 

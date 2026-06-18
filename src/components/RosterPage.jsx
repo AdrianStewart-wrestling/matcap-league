@@ -5,7 +5,7 @@ import { WEIGHT_CLASSES } from "../data/wrestlers";
 import { rosterWrestlerList, checkConferenceRule, checkChampionRule, CONFERENCE_TARGETS } from "../data/rosterRules";
 import { WrestlerPicker } from "./WrestlerPicker";
 
-export function RosterPage({ myRoster, wrestlers, wrestlerById, swapsRemaining, onAssign, onRemove }) {
+export function RosterPage({ myRoster, wrestlers, wrestlerById, swapsRemaining, isCommitted, onAssign, onRemove, onCommit }) {
   const [pickerWeight, setPickerWeight] = useState(null);
 
   const picked = rosterWrestlerList(myRoster, wrestlerById);
@@ -20,6 +20,14 @@ export function RosterPage({ myRoster, wrestlers, wrestlerById, swapsRemaining, 
   });
   const filledCount = WEIGHT_CLASSES.filter((w) => myRoster[w]).length;
   const rosterComplete = filledCount === WEIGHT_CLASSES.length;
+  const allRulesSatisfied = conferenceCheck.satisfied && championCheck.satisfied;
+  const canCommit = rosterComplete && allRulesSatisfied;
+  // Pre-commit, editing is always unlocked on every slot regardless of
+  // fill state (that's the whole point of the free-editing phase).
+  // Post-commit, editing on already-filled slots is gated behind the
+  // roster being complete (kept from the earlier lock-until-complete
+  // behavior, mostly relevant if a manager somehow lost a pick).
+  const editingUnlocked = !isCommitted || rosterComplete;
 
   return (
     <div>
@@ -28,9 +36,11 @@ export function RosterPage({ myRoster, wrestlers, wrestlerById, swapsRemaining, 
           My Roster
         </h1>
         <div style={{ fontSize: 13.5, color: C.inkSoft, marginTop: 4 }}>
-          {rosterComplete
-            ? `All 10 weight classes filled. ${swapsRemaining} swap${swapsRemaining === 1 ? "" : "s"} left this week.`
-            : `Fill all 10 weight classes (${filledCount}/10 so far). Swaps and removals unlock once your roster is complete.`}
+          {isCommitted
+            ? rosterComplete
+              ? `All 10 weight classes filled. ${swapsRemaining} swap${swapsRemaining === 1 ? "" : "s"} left this week.`
+              : `Fill all 10 weight classes (${filledCount}/10 so far). Swaps and removals unlock once your roster is complete.`
+            : `Building your initial roster (${filledCount}/10 so far) — edit freely, no swap limit applies yet. Commit when you're happy with it.`}
         </div>
       </div>
 
@@ -91,6 +101,42 @@ export function RosterPage({ myRoster, wrestlers, wrestlerById, swapsRemaining, 
           ))}
         </div>
       </Card>
+
+      {!isCommitted && (
+        <Card>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontFamily: displayFont, fontSize: 14, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.3, color: C.ink }}>
+                Commit your roster
+              </div>
+              <div style={{ fontSize: 12, color: C.inkSoft, marginTop: 2, maxWidth: 460 }}>
+                {canCommit
+                  ? "Everything checks out. Once you commit, edits switch to the normal weekly swap limit."
+                  : !rosterComplete
+                  ? `Fill all 10 weight classes first (${filledCount}/10 so far).`
+                  : "Your roster is full, but doesn't satisfy the rules above yet \u2014 fix those before committing."}
+              </div>
+            </div>
+            <OutlineButton
+              small
+              disabled={!canCommit}
+              onClick={onCommit}
+              style={
+                canCommit
+                  ? undefined
+                  : {
+                      cursor: "not-allowed",
+                      opacity: 0.4,
+                      borderColor: C.inkSoft,
+                      color: C.inkSoft,
+                    }
+              }
+            >
+              Commit Roster
+            </OutlineButton>
+          </div>
+        </Card>
+      )}
 
       <div style={{ display: "grid", gap: 9 }}>
         {WEIGHT_CLASSES.map((weight) => {
@@ -160,12 +206,12 @@ export function RosterPage({ myRoster, wrestlers, wrestlerById, swapsRemaining, 
                 )}
               </div>
               <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                {(!w || rosterComplete) && (
+                {(!w || editingUnlocked) && (
                   <OutlineButton small onClick={() => setPickerWeight(weight)}>
                     {w ? "Swap" : "Add"}
                   </OutlineButton>
                 )}
-                {w && rosterComplete && (
+                {w && editingUnlocked && (
                   <OutlineButton small onClick={() => onRemove(weight)}>Remove</OutlineButton>
                 )}
               </div>

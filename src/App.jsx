@@ -6,6 +6,7 @@ import {
   createManager,
   fetchAllRosters,
   saveRoster,
+  setRosterCommitted,
   fetchAllSwapLogs,
   saveSwapLog,
   fetchCurrentWeek,
@@ -33,6 +34,7 @@ export default function App() {
 
   const [managers, setManagers] = useState([]);
   const [rosters, setRosters] = useState({});
+  const [committedMap, setCommittedMap] = useState({});
   const [swapLog, setSwapLog] = useState({});
   const [currentWeek, setCurrentWeek] = useState(1);
   const [matchups, setMatchups] = useState({});
@@ -49,7 +51,7 @@ export default function App() {
   }, [wrestlers]);
 
   const loadAll = useCallback(async () => {
-    const [mgrs, rost, swaps, week, mtch, res] = await Promise.all([
+    const [mgrs, rostersResult, swaps, week, mtch, res] = await Promise.all([
       fetchManagers(),
       fetchAllRosters(),
       fetchAllSwapLogs(),
@@ -58,7 +60,8 @@ export default function App() {
       fetchAllResults(),
     ]);
     setManagers(mgrs);
-    setRosters(rost);
+    setRosters(rostersResult.rosters);
+    setCommittedMap(rostersResult.committed);
     setSwapLog(swaps);
     setCurrentWeek(week);
     setMatchups(mtch);
@@ -106,6 +109,7 @@ export default function App() {
         setManagers((prev) => [...prev, mgr]);
         await saveRoster(mgr.id, {});
         setRosters((prev) => ({ ...prev, [mgr.id]: {} }));
+        setCommittedMap((prev) => ({ ...prev, [mgr.id]: false }));
       } catch (e) {
         showToast("Couldn't join the league: " + (e.message || e));
         return;
@@ -121,12 +125,17 @@ export default function App() {
   }
 
   const myRoster = useMemo(() => rosters[currentManager?.id] || {}, [rosters, currentManager]);
+  const isCommitted = !!committedMap[currentManager?.id];
   const weekKey = "wk" + currentWeek;
   const mySwapsUsed = (swapLog[currentManager?.id] || {})[weekKey] || 0;
   const swapsRemaining = Math.max(0, SWAPS_PER_WEEK - mySwapsUsed);
 
   async function assignWrestler(weight, wrestlerId) {
-    const isSwap = !!myRoster[weight];
+    // Before the initial roster is committed, every pick is free editing:
+    // no swap-log cost, no weekly limit, regardless of whether the slot
+    // was already filled. After commit, the normal weekly-swap-limited
+    // behavior applies exactly as before.
+    const isSwap = isCommitted && !!myRoster[weight];
     if (isSwap && swapsRemaining <= 0) {
       showToast("No swaps remaining this week.");
       return;
@@ -150,7 +159,9 @@ export default function App() {
   }
 
   async function removeWrestler(weight) {
-    if (swapsRemaining <= 0) {
+    // Same free-editing carve-out as assignWrestler: only cost a swap
+    // and check the weekly limit once the roster has been committed.
+    if (isCommitted && swapsRemaining <= 0) {
       showToast("No swaps remaining this week.");
       return;
     }
@@ -159,10 +170,23 @@ export default function App() {
     setRosters((prev) => ({ ...prev, [currentManager.id]: newRosterForMe }));
     await saveRoster(currentManager.id, newRosterForMe);
 
-    const mySwaps = { ...(swapLog[currentManager.id] || {}) };
-    mySwaps[weekKey] = (mySwaps[weekKey] || 0) + 1;
-    setSwapLog((prev) => ({ ...prev, [currentManager.id]: mySwaps }));
-    await saveSwapLog(currentManager.id, mySwaps);
+    if (isCommitted) {
+      const mySwaps = { ...(swapLog[currentManager.id] || {}) };
+      mySwaps[weekKey] = (mySwaps[weekKey] || 0) + 1;
+      setSwapLog((prev) => ({ ...prev, [currentManager.id]: mySwaps }));
+      await saveSwapLog(currentManager.id, mySwaps);
+    }
+  }
+
+  async function commitRoster() {
+    if (!currentManager) return;
+    try {
+      await setRosterCommitted(currentManager.id, true);
+      setCommittedMap((prev) => ({ ...prev, [currentManager.id]: true }));
+      showToast("Roster committed! Swaps and removals now use your weekly limit.");
+    } catch (e) {
+      showToast("Couldn't commit roster: " + (e.message || e));
+    }
   }
 
   async function setResultForWrestler(wrestlerId, outcomeKey) {
@@ -304,8 +328,10 @@ export default function App() {
             wrestlers={wrestlers}
             wrestlerById={wrestlerById}
             swapsRemaining={swapsRemaining}
+            isCommitted={isCommitted}
             onAssign={assignWrestler}
             onRemove={removeWrestler}
+            onCommit={commitRoster}
           />
         )}
         {page === "matchup" && (
