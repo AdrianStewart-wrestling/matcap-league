@@ -125,13 +125,6 @@ export default function App() {
   const mySwapsUsed = (swapLog[currentManager?.id] || {})[weekKey] || 0;
   const swapsRemaining = Math.max(0, SWAPS_PER_WEEK - mySwapsUsed);
 
-  const myCapUsed = useMemo(() => {
-    return Object.values(myRoster).reduce((sum, wid) => {
-      const w = wrestlerById[wid];
-      return sum + (w ? w.salary : 0);
-    }, 0);
-  }, [myRoster, wrestlerById]);
-
   async function assignWrestler(weight, wrestlerId) {
     const isSwap = !!myRoster[weight];
     if (isSwap && swapsRemaining <= 0) {
@@ -310,7 +303,6 @@ export default function App() {
             myRoster={myRoster}
             wrestlers={wrestlers}
             wrestlerById={wrestlerById}
-            capUsed={myCapUsed}
             swapsRemaining={swapsRemaining}
             onAssign={assignWrestler}
             onRemove={removeWrestler}
