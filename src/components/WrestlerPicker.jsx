@@ -1,6 +1,6 @@
-import { C, displayFont, bodyFont, monoFont, fmtMoney } from "../theme";
+import { C, displayFont, bodyFont, monoFont } from "../theme";
 
-export function WrestlerPicker({ weight, wrestlers, capRemainingExcludingCurrent, onPick, onClose }) {
+export function WrestlerPicker({ weight, wrestlers, rosterHasChampion, currentPickIsChampion, onPick, onClose }) {
   const sorted = [...wrestlers].sort((a, b) => a.rank - b.rank);
 
   return (
@@ -51,12 +51,18 @@ export function WrestlerPicker({ weight, wrestlers, capRemainingExcludingCurrent
         </div>
         <div style={{ overflowY: "auto", padding: "8px 10px" }}>
           {sorted.map((w) => {
-            const affordable = w.salary <= capRemainingExcludingCurrent;
+            // A champion can only be picked here if the roster doesn't
+            // already have one elsewhere, UNLESS this exact pick is the
+            // one already occupying this slot (so re-confirming/closing
+            // without changing anything never gets blocked).
+            const blockedByChampionRule = w.champion && rosterHasChampion && !currentPickIsChampion;
+            const pickable = !blockedByChampionRule;
             return (
               <button
                 key={w.id}
-                disabled={!affordable}
+                disabled={!pickable}
                 onClick={() => onPick(w.id)}
+                title={blockedByChampionRule ? "Your roster already has a returning champion" : undefined}
                 style={{
                   width: "100%",
                   display: "flex",
@@ -66,9 +72,9 @@ export function WrestlerPicker({ weight, wrestlers, capRemainingExcludingCurrent
                   marginBottom: 4,
                   border: "none",
                   borderRadius: 5,
-                  background: affordable ? C.white : "transparent",
-                  cursor: affordable ? "pointer" : "default",
-                  opacity: affordable ? 1 : 0.45,
+                  background: pickable ? C.white : "transparent",
+                  cursor: pickable ? "pointer" : "default",
+                  opacity: pickable ? 1 : 0.4,
                   textAlign: "left",
                   fontFamily: bodyFont,
                 }}
@@ -79,8 +85,13 @@ export function WrestlerPicker({ weight, wrestlers, capRemainingExcludingCurrent
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap" }}>
                     <span style={{ fontWeight: 700, fontSize: 14.5, color: C.ink }}>{w.name}</span>
-                    {w.allAmerican && (
+                    {w.champion && (
                       <span style={{ fontFamily: monoFont, fontSize: 9, background: C.gold, color: C.ink, padding: "1px 5px", borderRadius: 8, fontWeight: 700 }}>
+                        CHAMP
+                      </span>
+                    )}
+                    {!w.champion && w.allAmerican && (
+                      <span style={{ fontFamily: monoFont, fontSize: 9, background: C.chalkDim, color: C.inkSoft, padding: "1px 5px", borderRadius: 8, fontWeight: 700 }}>
                         AA
                       </span>
                     )}
@@ -89,9 +100,11 @@ export function WrestlerPicker({ weight, wrestlers, capRemainingExcludingCurrent
                     {w.school} <span style={{ opacity: 0.6 }}>&middot; {w.conference}</span>
                   </div>
                 </div>
-                <div style={{ fontFamily: monoFont, fontWeight: 700, fontSize: 13.5, color: affordable ? C.maroon : C.inkSoft, whiteSpace: "nowrap" }}>
-                  {fmtMoney(w.salary)}
-                </div>
+                {blockedByChampionRule && (
+                  <div style={{ fontSize: 10.5, color: C.loss, fontWeight: 600, whiteSpace: "nowrap", maxWidth: 90, textAlign: "right" }}>
+                    champ already used
+                  </div>
+                )}
               </button>
             );
           })}
