@@ -185,7 +185,7 @@ export function RosterPage({ myRoster, wrestlers, wrestlerById, swapsRemaining, 
         <WrestlerPicker
           weight={pickerWeight}
           wrestlers={wrestlers.filter((w) => w.weight === pickerWeight)}
-          rosterHasChampion={championCheck.satisfied || championCheck.count > 0}
+          rosterHasChampion={championCheck.count > 0}
           currentPickIsChampion={myRoster[pickerWeight] ? wrestlerById[myRoster[pickerWeight]].champion : false}
           onPick={(wid) => {
             onAssign(pickerWeight, wid);
