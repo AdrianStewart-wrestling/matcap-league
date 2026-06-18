@@ -46,10 +46,10 @@ export function RosterPage({ myRoster, wrestlers, wrestlerById, swapsRemaining, 
           <span style={{ fontSize: 16 }}>{championCheck.satisfied ? "\u2713" : "\u25cb"}</span>
           <div>
             <div style={{ fontFamily: displayFont, fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.3, color: championCheck.satisfied ? C.win : C.loss }}>
-              Returning champion: {championCheck.count} / 1
+              Returning champion: {championCheck.count} / 1 max
             </div>
             <div style={{ fontSize: 12, color: C.inkSoft, marginTop: 2 }}>
-              Your roster must include exactly one 2026 NCAA weight-class champion &mdash; no more, no fewer.
+              You may include at most one 2026 NCAA weight-class champion &mdash; zero is fine, more than one is not allowed.
             </div>
           </div>
         </div>
