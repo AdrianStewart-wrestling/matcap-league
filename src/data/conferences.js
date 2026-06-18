@@ -11,7 +11,6 @@
 // SoCon. There is no wrestling SEC, Big East, or CAA as of
 // 2025-26 — those leagues dropped or never sponsored the sport.
 // ============================================================
-
 export const REQUIRED_CONFERENCES = [
   "Big Ten",
   "Big 12",
@@ -22,11 +21,9 @@ export const REQUIRED_CONFERENCES = [
   "SoCon",
   "MAC",
 ];
-
 // Conferences eligible to fill the 2 "wild card" roster slots,
 // on top of each conference's own required pick.
 export const WILD_CARD_CONFERENCES = ["MAC", "SoCon"];
-
 export const SCHOOL_CONFERENCE = {
   // ACC
   "Duke": "ACC",
@@ -36,7 +33,6 @@ export const SCHOOL_CONFERENCE = {
   "Stanford": "ACC",
   "Virginia": "ACC",
   "Virginia Tech": "ACC",
-
   // Big 12
   "Arizona State": "Big 12",
   "California Baptist": "Big 12",
@@ -52,7 +48,6 @@ export const SCHOOL_CONFERENCE = {
   "North Dakota State": "Big 12",
   "Northern Colorado": "Big 12",
   "South Dakota State": "Big 12",
-
   // Big Ten
   "Illinois": "Big Ten",
   "Indiana": "Big Ten",
@@ -68,7 +63,6 @@ export const SCHOOL_CONFERENCE = {
   "Purdue": "Big Ten",
   "Rutgers": "Big Ten",
   "Wisconsin": "Big Ten",
-
   // EIWA
   "American": "EIWA",
   "Army": "EIWA",
@@ -82,7 +76,6 @@ export const SCHOOL_CONFERENCE = {
   "Morgan State": "EIWA",
   "Navy": "EIWA",
   "Sacred Heart": "EIWA",
-
   // Ivy League
   "Brown": "Ivy League",
   "Columbia": "Ivy League",
@@ -90,7 +83,6 @@ export const SCHOOL_CONFERENCE = {
   "Harvard": "Ivy League",
   "Penn": "Ivy League",
   "Princeton": "Ivy League",
-
   // MAC
   "Bloomsburg": "MAC",
   "Buffalo": "MAC",
@@ -104,13 +96,11 @@ export const SCHOOL_CONFERENCE = {
   "Ohio": "MAC",
   "Rider": "MAC",
   "SIU Edwardsville": "MAC",
-
   // Pac-12
   "Cal Poly": "Pac-12",
   "Cal State Bakersfield": "Pac-12",
   "Little Rock": "Pac-12",
   "Oregon State": "Pac-12",
-
   // SoCon
   "Appalachian State": "SoCon",
   "Bellarmine": "SoCon",
@@ -122,7 +112,6 @@ export const SCHOOL_CONFERENCE = {
   "Presbyterian": "SoCon",
   "VMI": "SoCon",
 };
-
 export function conferenceForSchool(school) {
   return SCHOOL_CONFERENCE[school] || null;
 }

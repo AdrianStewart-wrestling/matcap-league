@@ -96,10 +96,30 @@ export function RosterPage({ myRoster, wrestlers, wrestlerById, swapsRemaining, 
             fontSize: 12.5,
             fontWeight: 600,
             color: conferenceCheck.wildCardsMet ? C.win : C.loss,
+            marginBottom: 10,
           }}
         >
           <span style={{ fontSize: 14 }}>{conferenceCheck.wildCardsMet ? "\u2713" : "\u25cb"}</span>
           Wild cards (extra {WILD_CARD_CONFERENCES.join("/")} picks): {conferenceCheck.wildCardSurplus} / {conferenceCheck.wildCardsNeeded}
+        </div>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "9px 12px",
+            borderRadius: 4,
+            background: conferenceCheck.capRespected ? "rgba(47,107,62,0.1)" : "rgba(163,56,46,0.08)",
+            border: `1px solid ${conferenceCheck.capRespected ? C.win : C.loss}`,
+            fontSize: 12.5,
+            fontWeight: 600,
+            color: conferenceCheck.capRespected ? C.win : C.loss,
+          }}
+        >
+          <span style={{ fontSize: 14 }}>{conferenceCheck.capRespected ? "\u2713" : "\u25cb"}</span>
+          {conferenceCheck.capRespected
+            ? `Max ${conferenceCheck.maxPerConference} picks per conference`
+            : `Too many picks from: ${conferenceCheck.overCapConferences.join(", ")} (max ${conferenceCheck.maxPerConference} each)`}
         </div>
       </Card>
 
@@ -187,6 +207,9 @@ export function RosterPage({ myRoster, wrestlers, wrestlerById, swapsRemaining, 
           wrestlers={wrestlers.filter((w) => w.weight === pickerWeight)}
           rosterHasChampion={championCheck.count > 0}
           currentPickIsChampion={myRoster[pickerWeight] ? wrestlerById[myRoster[pickerWeight]].champion : false}
+          conferenceCounts={byConference}
+          maxPerConference={conferenceCheck.maxPerConference}
+          currentPickConference={myRoster[pickerWeight] ? wrestlerById[myRoster[pickerWeight]].conference : null}
           onPick={(wid) => {
             onAssign(pickerWeight, wid);
             setPickerWeight(null);
