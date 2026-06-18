@@ -2,28 +2,24 @@ import { WEIGHT_CLASSES } from "./wrestlers.js";
 import { REQUIRED_CONFERENCES, WILD_CARD_CONFERENCES } from "./conferences.js";
 
 // A roster is { [weight]: wrestlerId }. This module checks it
-// against the league's three simultaneous rules:
+// against the league's two simultaneous rules:
 //   1. All 10 weight classes must be filled.
-//   2. Across those 10 picks, each of the 8 REQUIRED_CONFERENCES
-//      must appear at least once, AND at least 2 additional picks
-//      (beyond each conference's own required appearance) must
-//      come from MAC or SoCon — the "wild card" slots.
-//   3. No single conference may supply more than MAX_PER_CONFERENCE
-//      picks, total, across the whole roster.
-//
-// Concretely: out of 10 total picks, 8 are "spent" satisfying the
-// 8 required conferences one each, and the remaining 2 must be
-// MAC and/or SoCon wrestlers (in any combination — 2 MAC, 2 SoCon,
-// or 1 of each all satisfy the wild-card requirement) — and no
-// conference, including MAC/SoCon, can exceed the per-conference cap.
-//
-// Note this means the wild-card requirement can ONLY be met by an
-// even split (2 MAC + 2 SoCon overall, or all 4 picks across the two
-// split some other 2/2 way) once the cap is 2 — "3 MAC + 1 SoCon"
-// used to be a valid way to hit the wild-card minimum but now
-// violates the cap, since MAC would have 3 total picks.
+//   2. Across those 10 picks, each conference has an EXACT target
+//      count, not a minimum/maximum range:
+//        - Big Ten, Big 12, EIWA, ACC, Ivy League, Pac-12: exactly 1 each
+//        - MAC, SoCon: exactly 2 each (their own 1 required slot,
+//          plus exactly 1 wild-card pick each — not "2 more from
+//          either in any combination")
+//      That's 6×1 + 2×2 = 10, exactly filling the roster. There is
+//      no slack: a conference with 0 picks is just as invalid as one
+//      with 2 (for the 6) or 3 (for MAC/SoCon).
 
-export const MAX_PER_CONFERENCE = 2;
+// Exact required count per required conference. The 6 "singles"
+// conferences need exactly 1; MAC and SoCon need exactly 2 (their
+// own required pick + exactly 1 wild-card pick each).
+export const CONFERENCE_TARGETS = Object.fromEntries(
+  REQUIRED_CONFERENCES.map((c) => [c, WILD_CARD_CONFERENCES.includes(c) ? 2 : 1])
+);
 
 export function rosterWrestlerList(roster, wrestlerById) {
   return WEIGHT_CLASSES
@@ -33,12 +29,10 @@ export function rosterWrestlerList(roster, wrestlerById) {
     .filter((slot) => slot.wrestler);
 }
 
-// Given the list of picked wrestlers (with .conference), determine
-// whether the conference rule is satisfiable, using a simple greedy
-// assignment: give each required conference its own pick first if
-// available, then count remaining MAC/SoCon picks as wild cards.
-// Also enforces a hard per-conference cap (MAX_PER_CONFERENCE) that
-// applies to every conference, including MAC/SoCon.
+// Given the list of picked wrestlers (with .conference), check each
+// required conference against its EXACT target count (see
+// CONFERENCE_TARGETS above). Returns per-conference status so the UI
+// can show "0/1", "1/1", "2/2", "3/2 — too many", etc.
 export function checkConferenceRule(pickedWrestlers) {
   const byConference = {};
   pickedWrestlers.forEach((p) => {
@@ -48,38 +42,23 @@ export function checkConferenceRule(pickedWrestlers) {
     byConference[c].push(p);
   });
 
-  const missingRequired = REQUIRED_CONFERENCES.filter(
-    (c) => !byConference[c] || byConference[c].length === 0
-  );
-
-  // Count how many MAC/SoCon picks exist beyond the one each
-  // conference needs for its own required slot.
-  let wildCardSurplus = 0;
-  WILD_CARD_CONFERENCES.forEach((c) => {
+  const conferenceStatus = REQUIRED_CONFERENCES.map((c) => {
     const count = (byConference[c] || []).length;
-    // first one (if present) covers that conference's own required
-    // slot; anything beyond that counts toward the wild-card pool
-    wildCardSurplus += Math.max(0, count - 1);
+    const target = CONFERENCE_TARGETS[c];
+    return { conference: c, count, target, met: count === target };
   });
 
-  const wildCardsNeeded = 2;
-  const wildCardsMet = wildCardSurplus >= wildCardsNeeded;
-
-  const overCapConferences = Object.keys(byConference).filter(
-    (c) => byConference[c].length > MAX_PER_CONFERENCE
-  );
-  const capRespected = overCapConferences.length === 0;
+  const unmetConferences = conferenceStatus.filter((s) => !s.met);
+  const underConferences = conferenceStatus.filter((s) => s.count < s.target);
+  const overConferences = conferenceStatus.filter((s) => s.count > s.target);
 
   return {
-    missingRequired,
-    wildCardSurplus,
-    wildCardsNeeded,
-    wildCardsMet,
+    conferenceStatus,
     byConference,
-    maxPerConference: MAX_PER_CONFERENCE,
-    overCapConferences,
-    capRespected,
-    satisfied: missingRequired.length === 0 && wildCardsMet && capRespected,
+    unmetConferences,
+    underConferences,
+    overConferences,
+    satisfied: unmetConferences.length === 0,
   };
 }
 

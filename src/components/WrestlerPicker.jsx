@@ -6,7 +6,7 @@ export function WrestlerPicker({
   rosterHasChampion,
   currentPickIsChampion,
   conferenceCounts,
-  maxPerConference,
+  conferenceTargets,
   currentPickConference,
   onPick,
   onClose,
@@ -67,12 +67,15 @@ export function WrestlerPicker({
             // without changing anything never gets blocked).
             const blockedByChampionRule = w.champion && rosterHasChampion && !currentPickIsChampion;
 
-            // A pick is blocked by the conference cap if that conference
-            // is already at (or past) the cap elsewhere on the roster.
+            // A pick is blocked by the conference rule if that conference
+            // has already reached its exact target count elsewhere on the
+            // roster (1 for the 6 "single" conferences, 2 for MAC/SoCon).
             // If this exact slot's current occupant is already from that
-            // same conference, it doesn't count against the cap (swapping
-            // within the same conference, or re-picking the same person,
-            // never gets blocked).
+            // same conference, it doesn't count twice (swapping within the
+            // same conference, or re-picking the same person, never gets
+            // blocked). Wrestlers with no tracked conference are never
+            // blocked by this rule.
+            const target = w.conference ? conferenceTargets[w.conference] : undefined;
             const existingCountInConf = w.conference
               ? (conferenceCounts[w.conference] || []).length
               : 0;
@@ -80,13 +83,14 @@ export function WrestlerPicker({
             const effectiveCount = currentSlotAlreadyCountsToward
               ? existingCountInConf - 1
               : existingCountInConf;
-            const blockedByConferenceCap = !!w.conference && effectiveCount >= maxPerConference;
+            const blockedByConferenceRule =
+              !!w.conference && target !== undefined && effectiveCount >= target;
 
-            const pickable = !blockedByChampionRule && !blockedByConferenceCap;
+            const pickable = !blockedByChampionRule && !blockedByConferenceRule;
             const blockReason = blockedByChampionRule
               ? "Your roster already has a returning champion"
-              : blockedByConferenceCap
-              ? `You already have ${maxPerConference} from ${w.conference}`
+              : blockedByConferenceRule
+              ? `You already have ${target} from ${w.conference}`
               : undefined;
             return (
               <button
@@ -136,7 +140,7 @@ export function WrestlerPicker({
                     champ already used
                   </div>
                 )}
-                {!blockedByChampionRule && blockedByConferenceCap && (
+                {!blockedByChampionRule && blockedByConferenceRule && (
                   <div style={{ fontSize: 10.5, color: C.loss, fontWeight: 600, whiteSpace: "nowrap", maxWidth: 90, textAlign: "right" }}>
                     conf. limit reached
                   </div>

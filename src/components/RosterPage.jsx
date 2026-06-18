@@ -2,8 +2,7 @@ import { useState } from "react";
 import { C, displayFont, monoFont } from "../theme";
 import { OutlineButton, Card } from "./Primitives";
 import { WEIGHT_CLASSES } from "../data/wrestlers";
-import { REQUIRED_CONFERENCES, WILD_CARD_CONFERENCES } from "../data/conferences";
-import { rosterWrestlerList, checkConferenceRule, checkChampionRule } from "../data/rosterRules";
+import { rosterWrestlerList, checkConferenceRule, checkChampionRule, CONFERENCE_TARGETS } from "../data/rosterRules";
 import { WrestlerPicker } from "./WrestlerPicker";
 
 export function RosterPage({ myRoster, wrestlers, wrestlerById, swapsRemaining, onAssign, onRemove }) {
@@ -19,6 +18,8 @@ export function RosterPage({ myRoster, wrestlers, wrestlerById, swapsRemaining, 
     byConference[c] = byConference[c] || [];
     byConference[c].push(p);
   });
+  const filledCount = WEIGHT_CLASSES.filter((w) => myRoster[w]).length;
+  const rosterComplete = filledCount === WEIGHT_CLASSES.length;
 
   return (
     <div>
@@ -27,7 +28,9 @@ export function RosterPage({ myRoster, wrestlers, wrestlerById, swapsRemaining, 
           My Roster
         </h1>
         <div style={{ fontSize: 13.5, color: C.inkSoft, marginTop: 4 }}>
-          Fill all 10 weight classes. {swapsRemaining} swap{swapsRemaining === 1 ? "" : "s"} left this week.
+          {rosterComplete
+            ? `All 10 weight classes filled. ${swapsRemaining} swap${swapsRemaining === 1 ? "" : "s"} left this week.`
+            : `Fill all 10 weight classes (${filledCount}/10 so far). Swaps and removals unlock once your roster is complete.`}
         </div>
       </div>
 
@@ -59,67 +62,33 @@ export function RosterPage({ myRoster, wrestlers, wrestlerById, swapsRemaining, 
         <div style={{ fontFamily: displayFont, fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4, color: C.inkSoft, marginBottom: 12 }}>
           Conference rule
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: 8, marginBottom: 14 }}>
-          {REQUIRED_CONFERENCES.map((conf) => {
-            const have = (byConference[conf] || []).length > 0;
-            return (
-              <div
-                key={conf}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  padding: "7px 10px",
-                  borderRadius: 4,
-                  background: have ? "rgba(47,107,62,0.1)" : C.chalk,
-                  border: `1px solid ${have ? C.win : C.line}`,
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: have ? C.win : C.inkSoft,
-                }}
-              >
-                <span style={{ fontSize: 13 }}>{have ? "\u2713" : "\u25cb"}</span>
-                {conf}
-              </div>
-            );
-          })}
+        <div style={{ fontSize: 12, color: C.inkSoft, marginBottom: 12 }}>
+          Exactly 1 pick each from Big Ten, Big 12, EIWA, ACC, Ivy League, and
+          Pac-12 &mdash; plus exactly 2 each from MAC and SoCon (their own
+          required slot, plus 1 wild-card pick). That's 6&times;1 + 2&times;2 = 10,
+          your whole roster.
         </div>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            padding: "9px 12px",
-            borderRadius: 4,
-            background: conferenceCheck.wildCardsMet ? "rgba(47,107,62,0.1)" : "rgba(163,56,46,0.08)",
-            border: `1px solid ${conferenceCheck.wildCardsMet ? C.win : C.loss}`,
-            fontSize: 12.5,
-            fontWeight: 600,
-            color: conferenceCheck.wildCardsMet ? C.win : C.loss,
-            marginBottom: 10,
-          }}
-        >
-          <span style={{ fontSize: 14 }}>{conferenceCheck.wildCardsMet ? "\u2713" : "\u25cb"}</span>
-          Wild cards (extra {WILD_CARD_CONFERENCES.join("/")} picks): {conferenceCheck.wildCardSurplus} / {conferenceCheck.wildCardsNeeded}
-        </div>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            padding: "9px 12px",
-            borderRadius: 4,
-            background: conferenceCheck.capRespected ? "rgba(47,107,62,0.1)" : "rgba(163,56,46,0.08)",
-            border: `1px solid ${conferenceCheck.capRespected ? C.win : C.loss}`,
-            fontSize: 12.5,
-            fontWeight: 600,
-            color: conferenceCheck.capRespected ? C.win : C.loss,
-          }}
-        >
-          <span style={{ fontSize: 14 }}>{conferenceCheck.capRespected ? "\u2713" : "\u25cb"}</span>
-          {conferenceCheck.capRespected
-            ? `Max ${conferenceCheck.maxPerConference} picks per conference`
-            : `Too many picks from: ${conferenceCheck.overCapConferences.join(", ")} (max ${conferenceCheck.maxPerConference} each)`}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: 8 }}>
+          {conferenceCheck.conferenceStatus.map(({ conference, count, target, met }) => (
+            <div
+              key={conference}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "7px 10px",
+                borderRadius: 4,
+                background: met ? "rgba(47,107,62,0.1)" : "rgba(163,56,46,0.08)",
+                border: `1px solid ${met ? C.win : C.loss}`,
+                fontSize: 12,
+                fontWeight: 600,
+                color: met ? C.win : C.loss,
+              }}
+            >
+              <span style={{ fontSize: 13 }}>{met ? "\u2713" : "\u25cb"}</span>
+              {conference}: {count}/{target}
+            </div>
+          ))}
         </div>
       </Card>
 
@@ -191,10 +160,14 @@ export function RosterPage({ myRoster, wrestlers, wrestlerById, swapsRemaining, 
                 )}
               </div>
               <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                <OutlineButton small onClick={() => setPickerWeight(weight)}>
-                  {w ? "Swap" : "Add"}
-                </OutlineButton>
-                {w && <OutlineButton small onClick={() => onRemove(weight)}>Remove</OutlineButton>}
+                {(!w || rosterComplete) && (
+                  <OutlineButton small onClick={() => setPickerWeight(weight)}>
+                    {w ? "Swap" : "Add"}
+                  </OutlineButton>
+                )}
+                {w && rosterComplete && (
+                  <OutlineButton small onClick={() => onRemove(weight)}>Remove</OutlineButton>
+                )}
               </div>
             </div>
           );
@@ -208,7 +181,7 @@ export function RosterPage({ myRoster, wrestlers, wrestlerById, swapsRemaining, 
           rosterHasChampion={championCheck.count > 0}
           currentPickIsChampion={myRoster[pickerWeight] ? wrestlerById[myRoster[pickerWeight]].champion : false}
           conferenceCounts={byConference}
-          maxPerConference={conferenceCheck.maxPerConference}
+          conferenceTargets={CONFERENCE_TARGETS}
           currentPickConference={myRoster[pickerWeight] ? wrestlerById[myRoster[pickerWeight]].conference : null}
           onPick={(wid) => {
             onAssign(pickerWeight, wid);
