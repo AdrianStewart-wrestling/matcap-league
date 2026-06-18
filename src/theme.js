@@ -26,9 +26,4 @@ export const OUTCOMES = [
   { key: "decision", label: "Decision", pts: SCORING.decision },
   { key: "loss", label: "Loss", pts: SCORING.loss },
 ];
-export const SALARY_CAP = 50_000_000;
 export const SWAPS_PER_WEEK = 2;
-
-export function fmtMoney(n) {
-  return "$" + (n / 1_000_000).toFixed(2) + "M";
-}
