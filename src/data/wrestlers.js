@@ -196,6 +196,7 @@ function buildWrestlerPool() {
         rank: aa.rank,
         finish2026: aa.finish,
         allAmerican: true,
+        champion: aa.finish === 1,
       });
     });
 
@@ -220,6 +221,7 @@ function buildWrestlerPool() {
         rank: r,
         finish2026: null,
         allAmerican: false,
+        champion: false,
       });
     });
 
@@ -230,18 +232,6 @@ function buildWrestlerPool() {
   return pool;
 }
 
-function calculateSalary(rank, allAmerican, finish2026) {
-  let base = 9_000_000 * Math.pow(0.91, rank - 1);
-  base = Math.max(base, 900_000);
-  if (allAmerican) base += 300_000;
-  if (finish2026 && finish2026 <= 4) base += (5 - finish2026) * 150_000;
-  return Math.round(base / 50_000) * 50_000;
-}
-
 export function buildFullWrestlerData() {
-  const pool = buildWrestlerPool();
-  return pool.map((w) => ({
-    ...w,
-    salary: calculateSalary(w.rank, w.allAmerican, w.finish2026),
-  }));
+  return buildWrestlerPool();
 }
