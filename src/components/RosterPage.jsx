@@ -1,19 +1,17 @@
 import { useState } from "react";
-import { C, displayFont, bodyFont, monoFont, fmtMoney, SALARY_CAP } from "../theme";
+import { C, displayFont, monoFont } from "../theme";
 import { OutlineButton, Card } from "./Primitives";
 import { WEIGHT_CLASSES } from "../data/wrestlers";
 import { REQUIRED_CONFERENCES, WILD_CARD_CONFERENCES } from "../data/conferences";
-import { rosterWrestlerList, checkConferenceRule } from "../data/rosterRules";
+import { rosterWrestlerList, checkConferenceRule, checkChampionRule } from "../data/rosterRules";
 import { WrestlerPicker } from "./WrestlerPicker";
 
-export function RosterPage({ myRoster, wrestlers, wrestlerById, capUsed, swapsRemaining, onAssign, onRemove }) {
+export function RosterPage({ myRoster, wrestlers, wrestlerById, swapsRemaining, onAssign, onRemove }) {
   const [pickerWeight, setPickerWeight] = useState(null);
-  const capPct = Math.min(100, (capUsed / SALARY_CAP) * 100);
-  const over = capUsed > SALARY_CAP;
-  const remaining = SALARY_CAP - capUsed;
 
   const picked = rosterWrestlerList(myRoster, wrestlerById);
   const conferenceCheck = checkConferenceRule(picked);
+  const championCheck = checkChampionRule(picked);
   const byConference = {};
   picked.forEach((p) => {
     const c = p.wrestler.conference;
@@ -33,37 +31,27 @@ export function RosterPage({ myRoster, wrestlers, wrestlerById, capUsed, swapsRe
         </div>
       </div>
 
-      <Card style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
-        <svg width="42" height="42" viewBox="0 0 48 48" fill="none" style={{ flexShrink: 0 }}>
-          <path d="M24 6V40" stroke={C.maroon} strokeWidth="3" strokeLinecap="round" />
-          <path d="M10 16L24 10L38 16" stroke={C.maroon} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M6 16C6 16 8 24 10 24C12 24 14 16 14 16" stroke={C.gold} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M34 16C34 16 36 24 38 24C40 24 42 16 42 16" stroke={C.gold} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M14 40H34" stroke={C.maroon} strokeWidth="3" strokeLinecap="round" />
-        </svg>
-        <div style={{ flex: 1, minWidth: 200 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", fontFamily: monoFont, fontSize: 12.5, marginBottom: 6, color: C.inkSoft }}>
-            <span>Salary used</span>
-            <strong style={{ color: C.ink, fontSize: 15 }}>
-              {fmtMoney(capUsed)} / {fmtMoney(SALARY_CAP)}
-            </strong>
+      <Card>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            padding: "9px 12px",
+            borderRadius: 4,
+            background: championCheck.satisfied ? "rgba(47,107,62,0.1)" : "rgba(163,56,46,0.08)",
+            border: `1px solid ${championCheck.satisfied ? C.win : C.loss}`,
+          }}
+        >
+          <span style={{ fontSize: 16 }}>{championCheck.satisfied ? "\u2713" : "\u25cb"}</span>
+          <div>
+            <div style={{ fontFamily: displayFont, fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.3, color: championCheck.satisfied ? C.win : C.loss }}>
+              Returning champion: {championCheck.count} / 1
+            </div>
+            <div style={{ fontSize: 12, color: C.inkSoft, marginTop: 2 }}>
+              Your roster must include exactly one 2026 NCAA weight-class champion &mdash; no more, no fewer.
+            </div>
           </div>
-          <div style={{ height: 9, background: C.chalkDim, borderRadius: 6, overflow: "hidden" }}>
-            <div
-              style={{
-                height: "100%",
-                width: capPct + "%",
-                borderRadius: 6,
-                background: over ? `linear-gradient(90deg, ${C.loss}, #c94c3f)` : `linear-gradient(90deg, ${C.win}, ${C.gold})`,
-                transition: "width 0.3s",
-              }}
-            />
-          </div>
-        </div>
-        <div style={{ fontFamily: displayFont, fontSize: 20, color: over ? C.loss : C.maroon, textAlign: "right", whiteSpace: "nowrap" }}>
-          {over ? "\u2212" : ""}
-          {fmtMoney(Math.abs(remaining))}
-          <div style={{ fontSize: 10.5, color: C.inkSoft, fontFamily: bodyFont, textAlign: "right" }}>{over ? "over cap" : "remaining"}</div>
         </div>
       </Card>
 
@@ -163,8 +151,13 @@ export function RosterPage({ myRoster, wrestlers, wrestlerById, capUsed, swapsRe
                       <span style={{ fontFamily: monoFont, fontSize: 10.5, background: C.chalkDim, padding: "2px 7px", borderRadius: 10, fontWeight: 700 }}>
                         #{w.rank}
                       </span>
-                      {w.allAmerican && (
+                      {w.champion && (
                         <span style={{ fontFamily: monoFont, fontSize: 9.5, background: C.gold, color: C.ink, padding: "2px 6px", borderRadius: 10, fontWeight: 700, letterSpacing: 0.5 }}>
+                          2026 CHAMP
+                        </span>
+                      )}
+                      {!w.champion && w.allAmerican && (
+                        <span style={{ fontFamily: monoFont, fontSize: 9.5, background: C.chalkDim, color: C.inkSoft, padding: "2px 6px", borderRadius: 10, fontWeight: 700, letterSpacing: 0.5 }}>
                           2026 AA
                         </span>
                       )}
@@ -177,11 +170,6 @@ export function RosterPage({ myRoster, wrestlers, wrestlerById, capUsed, swapsRe
                   <span style={{ color: C.inkSoft, fontStyle: "italic", fontSize: 13.5 }}>No wrestler selected</span>
                 )}
               </div>
-              {w && (
-                <div style={{ fontFamily: monoFont, fontWeight: 700, color: C.maroon, fontSize: 14.5, whiteSpace: "nowrap" }}>
-                  {fmtMoney(w.salary)}
-                </div>
-              )}
               <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
                 <OutlineButton small onClick={() => setPickerWeight(weight)}>
                   {w ? "Swap" : "Add"}
@@ -197,7 +185,8 @@ export function RosterPage({ myRoster, wrestlers, wrestlerById, capUsed, swapsRe
         <WrestlerPicker
           weight={pickerWeight}
           wrestlers={wrestlers.filter((w) => w.weight === pickerWeight)}
-          capRemainingExcludingCurrent={SALARY_CAP - (capUsed - (myRoster[pickerWeight] ? wrestlerById[myRoster[pickerWeight]].salary : 0))}
+          rosterHasChampion={championCheck.satisfied || championCheck.count > 0}
+          currentPickIsChampion={myRoster[pickerWeight] ? wrestlerById[myRoster[pickerWeight]].champion : false}
           onPick={(wid) => {
             onAssign(pickerWeight, wid);
             setPickerWeight(null);
