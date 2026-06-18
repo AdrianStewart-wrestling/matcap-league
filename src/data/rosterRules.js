@@ -61,15 +61,30 @@ export function checkConferenceRule(pickedWrestlers) {
   };
 }
 
+// Exactly one of the 10 picks must be a 2026 weight-class champion
+// (not zero, not two or more).
+export function checkChampionRule(pickedWrestlers) {
+  const champions = pickedWrestlers.filter((p) => p.wrestler.champion);
+  const count = champions.length;
+  return {
+    count,
+    needed: 1,
+    satisfied: count === 1,
+    champions,
+  };
+}
+
 export function validateRoster(roster, wrestlerById) {
   const picked = rosterWrestlerList(roster, wrestlerById);
   const missingWeights = WEIGHT_CLASSES.filter((w) => !roster[w]);
   const conferenceCheck = checkConferenceRule(picked);
+  const championCheck = checkChampionRule(picked);
 
   return {
     complete: missingWeights.length === 0,
     missingWeights,
     conferenceCheck,
-    valid: missingWeights.length === 0 && conferenceCheck.satisfied,
+    championCheck,
+    valid: missingWeights.length === 0 && conferenceCheck.satisfied && championCheck.satisfied,
   };
 }
